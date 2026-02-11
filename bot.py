@@ -29,15 +29,30 @@ async def on_message(message):
     protected_channel_id = 1471212691002491021
 
     if message.channel.id == protected_channel_id:
+
         console_role = discord.utils.get(message.guild.roles, name="Console")
 
-        if console_role and console_role not in message.author.roles:
+        # If Console role doesn't exist, delete message
+        if not console_role:
             try:
                 await message.delete()
             except:
                 pass
             return
 
+        # If user does NOT have Console role
+        if console_role not in message.author.roles:
+            try:
+                await message.delete()
+            except:
+                pass
+            return
+
+        # If user has Console role
+        # DO NOT process commands in this channel
+        return
+
+    # Process commands normally in other channels
     await bot.process_commands(message)
 
 
