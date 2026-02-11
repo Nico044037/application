@@ -10,89 +10,18 @@ intents.members = True
 bot = commands.Bot(command_prefix="$", intents=intents)
 
 
-@bot.event
-async def on_ready():
-    print(f"Logged in as {bot.user}")
-    bot.add_view(ApplicationView())
-    bot.add_view(StaffView())
-
-
 # =========================
-# CONSOLE CHANNEL PROTECTION
-# =========================
-@bot.event
-async def on_message(message):
-
-    if message.author.bot:
-        return
-
-    protected_channel_id = 1471212691002491021
-
-    if message.channel.id == protected_channel_id:
-
-        console_role = discord.utils.get(message.guild.roles, name="Console")
-
-        # If Console role doesn't exist, delete message
-        if not console_role:
-            try:
-                await message.delete()
-            except:
-                pass
-            return
-
-        # If user does NOT have Console role
-        if console_role not in message.author.roles:
-            try:
-                await message.delete()
-            except:
-                pass
-            return
-
-        # If user has Console role
-        # DO NOT process commands in this channel
-        return
-
-    # Process commands normally in other channels
-    await bot.process_commands(message)
-
-
-# =========================
-# SETUP COMMAND
-# =========================
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def setup(ctx):
-    guild = ctx.guild
-
-    category = discord.utils.get(guild.categories, name="Applications")
-    if not category:
-        category = await guild.create_category("Applications")
-
-    start_channel = discord.utils.get(guild.text_channels, name="application-start")
-    if not start_channel:
-        start_channel = await guild.create_text_channel(
-            "application-start",
-            category=category
-        )
-
-    embed = discord.Embed(
-        title="📋 Start Your Application",
-        description="Click the button below to start your application.",
-        color=discord.Color.blue()
-    )
-
-    await start_channel.send(embed=embed, view=ApplicationView())
-    await ctx.send("✅ Application system setup complete!")
-
-
-# =========================
-# USER START APPLICATION
+# USER START APPLICATION VIEW
 # =========================
 class ApplicationView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @discord.ui.button(label="Start Application", style=discord.ButtonStyle.green, custom_id="start_application")
+    @discord.ui.button(
+        label="Start Application",
+        style=discord.ButtonStyle.green,
+        custom_id="start_application"
+    )
     async def start_application(self, interaction: discord.Interaction, button: discord.ui.Button):
 
         guild = interaction.guild
@@ -102,6 +31,7 @@ class ApplicationView(discord.ui.View):
             guild.text_channels,
             name=f"application-{interaction.user.id}"
         )
+
         if existing:
             await interaction.response.send_message(
                 "❌ You already have an open application!",
@@ -130,6 +60,7 @@ class ApplicationView(discord.ui.View):
         embed.set_footer(text=f"Applicant ID: {interaction.user.id}")
 
         await channel.send(embed=embed, view=StaffView())
+
         await interaction.response.send_message(
             f"✅ Your application channel: {channel.mention}",
             ephemeral=True
@@ -137,7 +68,7 @@ class ApplicationView(discord.ui.View):
 
 
 # =========================
-# STAFF BUTTONS
+# STAFF REVIEW VIEW
 # =========================
 class StaffView(discord.ui.View):
     def __init__(self):
@@ -188,6 +119,76 @@ class StaffView(discord.ui.View):
 
         await interaction.response.send_message("🔒 Closing application...", ephemeral=True)
         await interaction.channel.delete()
+
+
+# =========================
+# REGISTER PERSISTENT VIEWS
+# =========================
+@bot.event
+async def setup_hook():
+    bot.add_view(ApplicationView())
+    bot.add_view(StaffView())
+
+
+@bot.event
+async def on_ready():
+    print(f"Logged in as {bot.user}")
+
+
+# =========================
+# CONSOLE CHANNEL PROTECTION
+# =========================
+@bot.event
+async def on_message(message):
+
+    if message.author.bot:
+        return
+
+    protected_channel_id = 1471212691002491021
+
+    if message.channel.id == protected_channel_id:
+
+        console_role = discord.utils.get(message.guild.roles, name="Console")
+
+        if not console_role or console_role not in message.author.roles:
+            try:
+                await message.delete()
+            except:
+                pass
+            return
+
+        return  # Prevent commands in console channel
+
+    await bot.process_commands(message)
+
+
+# =========================
+# SETUP COMMAND
+# =========================
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def setup(ctx):
+    guild = ctx.guild
+
+    category = discord.utils.get(guild.categories, name="Applications")
+    if not category:
+        category = await guild.create_category("Applications")
+
+    start_channel = discord.utils.get(guild.text_channels, name="application-start")
+    if not start_channel:
+        start_channel = await guild.create_text_channel(
+            "application-start",
+            category=category
+        )
+
+    embed = discord.Embed(
+        title="📋 Start Your Application",
+        description="Click the button below to start your application.",
+        color=discord.Color.blue()
+    )
+
+    await start_channel.send(embed=embed, view=ApplicationView())
+    await ctx.send("✅ Application system setup complete!")
 
 
 # =========================
