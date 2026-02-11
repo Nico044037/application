@@ -229,7 +229,33 @@ async def consoleviewremove(ctx, member: discord.Member):
 
     await member.remove_roles(role)
     await ctx.send(f"🗑️ {member.mention} removed from **viewconsole** role.")
+# =========================
+# CONSOLE CHANNEL PROTECTION
+# =========================
+@bot.event
+async def on_message(message):
 
+    # Ignore bot messages
+    if message.author.bot:
+        return
+
+    # Channel ID to protect
+    protected_channel_id = 1471212691002491021
+
+    if message.channel.id == protected_channel_id:
+
+        console_role = discord.utils.get(message.guild.roles, name="Console")
+
+        # If role exists and user does NOT have it
+        if console_role and console_role not in message.author.roles:
+            try:
+                await message.delete()
+            except:
+                pass
+            return
+
+    # VERY IMPORTANT - allow commands to still work
+    await bot.process_commands(message)
 
 TOKEN = os.getenv("TOKEN")
 bot.run(TOKEN)
