@@ -59,7 +59,6 @@ class ApplicationView(discord.ui.View):
         guild = interaction.guild
         category = discord.utils.get(guild.categories, name="Applications")
 
-        # Prevent duplicate applications
         existing = discord.utils.get(
             guild.text_channels,
             name=f"application-{interaction.user.id}"
@@ -106,7 +105,6 @@ class StaffView(discord.ui.View):
         super().__init__(timeout=None)
 
     async def interaction_check(self, interaction: discord.Interaction):
-        # Only allow users with Manage Roles permission
         if interaction.user.guild_permissions.manage_roles:
             return True
         await interaction.response.send_message("❌ Staff only!", ephemeral=True)
@@ -117,7 +115,6 @@ class StaffView(discord.ui.View):
 
         applicant_id = int(interaction.message.embeds[0].footer.text.split(": ")[1])
         member = interaction.guild.get_member(applicant_id)
-
         role = interaction.guild.get_role(1471207852508188768)
 
         if member and role:
@@ -152,35 +149,76 @@ class StaffView(discord.ui.View):
 
         await interaction.response.send_message("🔒 Closing application...", ephemeral=True)
         await interaction.channel.delete()
+
+
 # =========================
-# CONSOLE COMMAND
+# SUDO GROUP
 # =========================
-@bot.command()
+@bot.group()
 @commands.has_permissions(administrator=True)
-async def console(ctx):
+async def sudo(ctx):
+    if ctx.invoked_subcommand is None:
+        await ctx.send("⚠️ Available subcommands: consoleadd, removeconsole")
+
+
+# =========================
+# ADD CONSOLE ROLE
+# =========================
+@sudo.command()
+async def consoleadd(ctx, member: discord.Member):
     guild = ctx.guild
 
-    # Check if role already exists
     role = discord.utils.get(guild.roles, name="Console")
 
     if not role:
         role = await guild.create_role(
             name="Console",
             colour=discord.Color.dark_green(),
-            reason="Console role created via $console command"
+            reason="Console role auto-created"
         )
 
-    # Give role to command user
-    if role not in ctx.author.roles:
-        await ctx.author.add_roles(role)
+    if role in member.roles:
+        await ctx.send("❌ That user already has Console role.")
+        return
+
+    await member.add_roles(role)
 
     embed = discord.Embed(
-        title="🖥️ Console Access Granted",
-        description=f"{ctx.author.mention} now has the **Console** role.",
-        color=discord.Color.dark_green()
+        title="🖥️ Console Role Added",
+        description=f"{member.mention} has been given the **Console** role.",
+        color=discord.Color.green()
     )
 
     await ctx.send(embed=embed)
+
+
+# =========================
+# REMOVE CONSOLE ROLE
+# =========================
+@sudo.command()
+async def removeconsole(ctx, member: discord.Member):
+    guild = ctx.guild
+
+    role = discord.utils.get(guild.roles, name="Console")
+
+    if not role:
+        await ctx.send("❌ Console role does not exist.")
+        return
+
+    if role not in member.roles:
+        await ctx.send("❌ That user does not have Console role.")
+        return
+
+    await member.remove_roles(role)
+
+    embed = discord.Embed(
+        title="🗑️ Console Role Removed",
+        description=f"{member.mention} has been removed from **Console** role.",
+        color=discord.Color.red()
+    )
+
+    await ctx.send(embed=embed)
+
 
 TOKEN = os.getenv("TOKEN")
 bot.run(TOKEN)
