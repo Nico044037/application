@@ -18,6 +18,30 @@ async def on_ready():
 
 
 # =========================
+# CONSOLE CHANNEL PROTECTION
+# =========================
+@bot.event
+async def on_message(message):
+
+    if message.author.bot:
+        return
+
+    protected_channel_id = 1471212691002491021
+
+    if message.channel.id == protected_channel_id:
+        console_role = discord.utils.get(message.guild.roles, name="Console")
+
+        if console_role and console_role not in message.author.roles:
+            try:
+                await message.delete()
+            except:
+                pass
+            return
+
+    await bot.process_commands(message)
+
+
+# =========================
 # SETUP COMMAND
 # =========================
 @bot.command()
@@ -161,16 +185,12 @@ async def sudo(ctx):
         await ctx.send("⚠️ Subcommands: consoleadd, removeconsole, consoleviewadd, consoleviewremove")
 
 
-# =========================
-# CONSOLE ROLE ADD
-# =========================
 @sudo.command()
 async def consoleadd(ctx, member: discord.Member):
-    guild = ctx.guild
-    role = discord.utils.get(guild.roles, name="Console")
+    role = discord.utils.get(ctx.guild.roles, name="Console")
 
     if not role:
-        role = await guild.create_role(name="Console", colour=discord.Color.dark_green())
+        role = await ctx.guild.create_role(name="Console", colour=discord.Color.dark_green())
 
     if role in member.roles:
         await ctx.send("❌ User already has Console role.")
@@ -180,13 +200,9 @@ async def consoleadd(ctx, member: discord.Member):
     await ctx.send(f"✅ {member.mention} given **Console** role.")
 
 
-# =========================
-# CONSOLE ROLE REMOVE
-# =========================
 @sudo.command()
 async def removeconsole(ctx, member: discord.Member):
-    guild = ctx.guild
-    role = discord.utils.get(guild.roles, name="Console")
+    role = discord.utils.get(ctx.guild.roles, name="Console")
 
     if not role or role not in member.roles:
         await ctx.send("❌ User does not have Console role.")
@@ -196,16 +212,12 @@ async def removeconsole(ctx, member: discord.Member):
     await ctx.send(f"🗑️ {member.mention} removed from **Console** role.")
 
 
-# =========================
-# VIEWCONSOLE ROLE ADD
-# =========================
 @sudo.command()
 async def consoleviewadd(ctx, member: discord.Member):
-    guild = ctx.guild
-    role = discord.utils.get(guild.roles, name="viewconsole")
+    role = discord.utils.get(ctx.guild.roles, name="viewconsole")
 
     if not role:
-        role = await guild.create_role(name="viewconsole", colour=discord.Color.light_grey())
+        role = await ctx.guild.create_role(name="viewconsole", colour=discord.Color.light_grey())
 
     if role in member.roles:
         await ctx.send("❌ User already has viewconsole role.")
@@ -215,13 +227,9 @@ async def consoleviewadd(ctx, member: discord.Member):
     await ctx.send(f"👁️ {member.mention} given **viewconsole** role.")
 
 
-# =========================
-# VIEWCONSOLE ROLE REMOVE
-# =========================
 @sudo.command()
 async def consoleviewremove(ctx, member: discord.Member):
-    guild = ctx.guild
-    role = discord.utils.get(guild.roles, name="viewconsole")
+    role = discord.utils.get(ctx.guild.roles, name="viewconsole")
 
     if not role or role not in member.roles:
         await ctx.send("❌ User does not have viewconsole role.")
@@ -229,5 +237,7 @@ async def consoleviewremove(ctx, member: discord.Member):
 
     await member.remove_roles(role)
     await ctx.send(f"🗑️ {member.mention} removed from **viewconsole** role.")
+
+
 TOKEN = os.getenv("TOKEN")
 bot.run(TOKEN)
