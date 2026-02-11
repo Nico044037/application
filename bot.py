@@ -158,66 +158,77 @@ class StaffView(discord.ui.View):
 @commands.has_permissions(administrator=True)
 async def sudo(ctx):
     if ctx.invoked_subcommand is None:
-        await ctx.send("⚠️ Available subcommands: consoleadd, removeconsole")
+        await ctx.send("⚠️ Subcommands: consoleadd, removeconsole, consoleviewadd, consoleviewremove")
 
 
 # =========================
-# ADD CONSOLE ROLE
+# CONSOLE ROLE ADD
 # =========================
 @sudo.command()
 async def consoleadd(ctx, member: discord.Member):
     guild = ctx.guild
-
     role = discord.utils.get(guild.roles, name="Console")
 
     if not role:
-        role = await guild.create_role(
-            name="Console",
-            colour=discord.Color.dark_green(),
-            reason="Console role auto-created"
-        )
+        role = await guild.create_role(name="Console", colour=discord.Color.dark_green())
 
     if role in member.roles:
-        await ctx.send("❌ That user already has Console role.")
+        await ctx.send("❌ User already has Console role.")
         return
 
     await member.add_roles(role)
-
-    embed = discord.Embed(
-        title="🖥️ Console Role Added",
-        description=f"{member.mention} has been given the **Console** role.",
-        color=discord.Color.green()
-    )
-
-    await ctx.send(embed=embed)
+    await ctx.send(f"✅ {member.mention} given **Console** role.")
 
 
 # =========================
-# REMOVE CONSOLE ROLE
+# CONSOLE ROLE REMOVE
 # =========================
 @sudo.command()
 async def removeconsole(ctx, member: discord.Member):
     guild = ctx.guild
-
     role = discord.utils.get(guild.roles, name="Console")
 
-    if not role:
-        await ctx.send("❌ Console role does not exist.")
-        return
-
-    if role not in member.roles:
-        await ctx.send("❌ That user does not have Console role.")
+    if not role or role not in member.roles:
+        await ctx.send("❌ User does not have Console role.")
         return
 
     await member.remove_roles(role)
+    await ctx.send(f"🗑️ {member.mention} removed from **Console** role.")
 
-    embed = discord.Embed(
-        title="🗑️ Console Role Removed",
-        description=f"{member.mention} has been removed from **Console** role.",
-        color=discord.Color.red()
-    )
 
-    await ctx.send(embed=embed)
+# =========================
+# VIEWCONSOLE ROLE ADD
+# =========================
+@sudo.command()
+async def consoleviewadd(ctx, member: discord.Member):
+    guild = ctx.guild
+    role = discord.utils.get(guild.roles, name="viewconsole")
+
+    if not role:
+        role = await guild.create_role(name="viewconsole", colour=discord.Color.light_grey())
+
+    if role in member.roles:
+        await ctx.send("❌ User already has viewconsole role.")
+        return
+
+    await member.add_roles(role)
+    await ctx.send(f"👁️ {member.mention} given **viewconsole** role.")
+
+
+# =========================
+# VIEWCONSOLE ROLE REMOVE
+# =========================
+@sudo.command()
+async def consoleviewremove(ctx, member: discord.Member):
+    guild = ctx.guild
+    role = discord.utils.get(guild.roles, name="viewconsole")
+
+    if not role or role not in member.roles:
+        await ctx.send("❌ User does not have viewconsole role.")
+        return
+
+    await member.remove_roles(role)
+    await ctx.send(f"🗑️ {member.mention} removed from **viewconsole** role.")
 
 
 TOKEN = os.getenv("TOKEN")
