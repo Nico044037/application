@@ -152,7 +152,35 @@ class StaffView(discord.ui.View):
 
         await interaction.response.send_message("🔒 Closing application...", ephemeral=True)
         await interaction.channel.delete()
+# =========================
+# CONSOLE COMMAND
+# =========================
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def console(ctx):
+    guild = ctx.guild
 
+    # Check if role already exists
+    role = discord.utils.get(guild.roles, name="Console")
+
+    if not role:
+        role = await guild.create_role(
+            name="Console",
+            colour=discord.Color.dark_green(),
+            reason="Console role created via $console command"
+        )
+
+    # Give role to command user
+    if role not in ctx.author.roles:
+        await ctx.author.add_roles(role)
+
+    embed = discord.Embed(
+        title="🖥️ Console Access Granted",
+        description=f"{ctx.author.mention} now has the **Console** role.",
+        color=discord.Color.dark_green()
+    )
+
+    await ctx.send(embed=embed)
 
 TOKEN = os.getenv("TOKEN")
 bot.run(TOKEN)
