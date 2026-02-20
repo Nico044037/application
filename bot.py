@@ -1,259 +1,90 @@
-import os
 import discord
 from discord.ext import commands
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+TOKEN = os.getenv("TOKEN")
 
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
 intents.members = True
 
-bot = commands.Bot(command_prefix="$", intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 
-# =========================
-# USER START APPLICATION VIEW
-# =========================
 class ApplicationView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @discord.ui.button(
-        label="Start Application",
-        style=discord.ButtonStyle.green,
-        custom_id="start_application"
-    )
-    async def start_application(self, interaction: discord.Interaction, button: discord.ui.Button):
-
+    @discord.ui.button(label="Create Application", style=discord.ButtonStyle.green, custom_id="create_application")
+    async def create_application(self, interaction: discord.Interaction, button: discord.ui.Button):
         guild = interaction.guild
-        category = discord.utils.get(guild.categories, name="Applications")
+        user = interaction.user
 
-        existing = discord.utils.get(
-            guild.text_channels,
-            name=f"application-{interaction.user.id}"
-        )
+        # Find or create "apply" category
+        category = discord.utils.get(guild.categories, name="apply")
+        if category is None:
+            category = await guild.create_category("apply")
 
+        # Channel name
+        channel_name = f"application-{user.name}".lower()
+
+        # Check if user already has a channel
+        existing = discord.utils.get(category.text_channels, name=channel_name)
         if existing:
             await interaction.response.send_message(
-                "❌ You already have an open application!",
+                f"You already have an application channel: {existing.mention}",
                 ephemeral=True
             )
             return
 
+        # Permissions
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(view_channel=False),
-            interaction.user: discord.PermissionOverwrite(view_channel=True, send_messages=True),
+            user: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
             guild.me: discord.PermissionOverwrite(view_channel=True)
         }
 
+        # Create channel
         channel = await guild.create_text_channel(
-            f"application-{interaction.user.id}",
+            name=channel_name,
             category=category,
             overwrites=overwrites
         )
 
-        embed = discord.Embed(
-            title="📝 Application Opened",
-            description=f"{interaction.user.mention} started an application.\n\nStaff can review below.",
-            color=discord.Color.orange()
-        )
-
-        embed.set_footer(text=f"Applicant ID: {interaction.user.id}")
-
-        await channel.send(embed=embed, view=StaffView())
-
         await interaction.response.send_message(
-            f"✅ Your application channel: {channel.mention}",
+            f"Your application channel has been created: {channel.mention}",
             ephemeral=True
         )
 
-
-# =========================
-# STAFF REVIEW VIEW
-# =========================
-class StaffView(discord.ui.View):
-    def __init__(self):
-        super().__init__(timeout=None)
-
-    async def interaction_check(self, interaction: discord.Interaction):
-        if interaction.user.guild_permissions.manage_roles:
-            return True
-        await interaction.response.send_message("❌ Staff only!", ephemeral=True)
-        return False
-
-    @discord.ui.button(label="✅ Accept", style=discord.ButtonStyle.green, custom_id="accept_app")
-    async def accept(self, interaction: discord.Interaction, button: discord.ui.Button):
-
-        applicant_id = int(interaction.message.embeds[0].footer.text.split(": ")[1])
-        member = interaction.guild.get_member(applicant_id)
-        role = interaction.guild.get_role(1471207852508188768)
-
-        if member and role:
-            await member.add_roles(role)
-
         embed = discord.Embed(
-            title="✅ Application Accepted",
-            description=f"{member.mention} has been accepted!",
-            color=discord.Color.green()
+            title="Application Channel",
+            description=f"Hello {user.mention}, please fill out your application here.",
+            color=discord.Color.blue()
         )
-
-        await interaction.channel.send(embed=embed)
-        await interaction.response.defer()
-
-    @discord.ui.button(label="❌ Decline", style=discord.ButtonStyle.red, custom_id="decline_app")
-    async def decline(self, interaction: discord.Interaction, button: discord.ui.Button):
-
-        applicant_id = int(interaction.message.embeds[0].footer.text.split(": ")[1])
-        member = interaction.guild.get_member(applicant_id)
-
-        embed = discord.Embed(
-            title="❌ Application Declined",
-            description=f"{member.mention} has been declined.",
-            color=discord.Color.red()
-        )
-
-        await interaction.channel.send(embed=embed)
-        await interaction.response.defer()
-
-    @discord.ui.button(label="🔒 Close", style=discord.ButtonStyle.gray, custom_id="close_app")
-    async def close(self, interaction: discord.Interaction, button: discord.ui.Button):
-
-        await interaction.response.send_message("🔒 Closing application...", ephemeral=True)
-        await interaction.channel.delete()
-
-
-# =========================
-# REGISTER PERSISTENT VIEWS
-# =========================
-@bot.event
-async def setup_hook():
-    bot.add_view(ApplicationView())
-    bot.add_view(StaffView())
+        await channel.send(embed=embed)
 
 
 @bot.event
 async def on_ready():
+    bot.add_view(ApplicationView())  # Persistent buttons
     print(f"Logged in as {bot.user}")
 
 
-# =========================
-# CONSOLE CHANNEL PROTECTION
-# =========================
-@bot.event
-async def on_message(message):
-
-    if message.author.bot:
-        return
-
-    protected_channel_id = 1471212691002491021
-
-    if message.channel.id == protected_channel_id:
-
-        console_role = discord.utils.get(message.guild.roles, name="Console")
-
-        if not console_role or console_role not in message.author.roles:
-            try:
-                await message.delete()
-            except:
-                pass
-            return
-
-        return  # Prevent commands in console channel
-
-    await bot.process_commands(message)
-
-
-# =========================
-# SETUP COMMAND
-# =========================
 @bot.command()
 @commands.has_permissions(administrator=True)
-async def setup(ctx):
-    guild = ctx.guild
-
-    category = discord.utils.get(guild.categories, name="Applications")
-    if not category:
-        category = await guild.create_category("Applications")
-
-    start_channel = discord.utils.get(guild.text_channels, name="application-start")
-    if not start_channel:
-        start_channel = await guild.create_text_channel(
-            "application-start",
-            category=category
-        )
-
+async def setup(ctx, channel: discord.TextChannel):
     embed = discord.Embed(
-        title="📋 Start Your Application",
-        description="Click the button below to start your application.",
-        color=discord.Color.blue()
+        title="Application Panel",
+        description="Click the button below to create your application channel.",
+        color=discord.Color.green()
     )
 
-    await start_channel.send(embed=embed, view=ApplicationView())
-    await ctx.send("✅ Application system setup complete!")
+    view = ApplicationView()
+    await channel.send(embed=embed, view=view)
+    await ctx.send(f"Application panel sent in {channel.mention}")
 
 
-# =========================
-# SUDO GROUP
-# =========================
-@bot.group()
-@commands.has_permissions(administrator=True)
-async def sudo(ctx):
-    if ctx.invoked_subcommand is None:
-        await ctx.send("⚠️ Subcommands: consoleadd, removeconsole, consoleviewadd, consoleviewremove")
-
-
-@sudo.command()
-async def consoleadd(ctx, member: discord.Member):
-    role = discord.utils.get(ctx.guild.roles, name="Console")
-
-    if not role:
-        role = await ctx.guild.create_role(name="Console", colour=discord.Color.dark_green())
-
-    if role in member.roles:
-        await ctx.send("❌ User already has Console role.")
-        return
-
-    await member.add_roles(role)
-    await ctx.send(f"✅ {member.mention} given **Console** role.")
-
-
-@sudo.command()
-async def removeconsole(ctx, member: discord.Member):
-    role = discord.utils.get(ctx.guild.roles, name="Console")
-
-    if not role or role not in member.roles:
-        await ctx.send("❌ User does not have Console role.")
-        return
-
-    await member.remove_roles(role)
-    await ctx.send(f"🗑️ {member.mention} removed from **Console** role.")
-
-
-@sudo.command()
-async def consoleviewadd(ctx, member: discord.Member):
-    role = discord.utils.get(ctx.guild.roles, name="viewconsole")
-
-    if not role:
-        role = await ctx.guild.create_role(name="viewconsole", colour=discord.Color.light_grey())
-
-    if role in member.roles:
-        await ctx.send("❌ User already has viewconsole role.")
-        return
-
-    await member.add_roles(role)
-    await ctx.send(f"👁️ {member.mention} given **viewconsole** role.")
-
-
-@sudo.command()
-async def consoleviewremove(ctx, member: discord.Member):
-    role = discord.utils.get(ctx.guild.roles, name="viewconsole")
-
-    if not role or role not in member.roles:
-        await ctx.send("❌ User does not have viewconsole role.")
-        return
-
-    await member.remove_roles(role)
-    await ctx.send(f"🗑️ {member.mention} removed from **viewconsole** role.")
-
-
-TOKEN = os.getenv("TOKEN")
 bot.run(TOKEN)
